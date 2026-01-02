@@ -106,6 +106,7 @@ ncclResult_t commReclaim(ncclComm_t comm);
 #ifdef ENABLE_ROCSHMEM
 RCCL_PARAM(RocshmemThreshold, "ROCSHMEM_THRESHOLD", (size_t)(262144));
 RCCL_PARAM(RocshmemEnabled, "ROCSHMEM_ENABLE", 1); // @TODO - unable to disable this at runtime
+RCCL_PARAM(RocshmemInitOnly, "ROCSHMEM_INIT_ONLY", 0);
 #endif
 
 #ifdef ENABLE_MSCCLPP
@@ -2109,7 +2110,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
 
 #ifdef ENABLE_ROCSHMEM
   /* --- sanity-check print statement for development purposes --- */
-  if (rcclParamRocshmemEnabled()) { // @TODO - This doesn't seem to disable when I set ROCSHMEM_ENABLE=0 on command line
+  if (rcclParamRocshmemEnabled() || rcclParamRocshmemInitOnly()) { // @TODO - This doesn't seem to disable when I set ROCSHMEM_ENABLE=0 on command line
     printf("Initializing rocSHMEM inside of RCCL\n");
     int ret;
     rocshmem::rocshmem_uniqueid_t rocshmemUniqueId;
@@ -2149,6 +2150,7 @@ static ncclResult_t ncclCommInitRankFunc(struct ncclAsyncJob* job_) {
     comm->enableRocshmem = rcclParamRocshmemEnabled();
     comm->rocshmemThreshold = rcclParamRocshmemThreshold();
     comm->numSymBuf = NUM_SYM_BUF;
+    comm->rocshmemInitOnly = rcclParamRocshmemInitOnly();
 
     //rocshmem::rocshmem_team_t team_reduce_world_dup;
     comm->team_reduce_world_dup = rocshmem::ROCSHMEM_TEAM_INVALID;
@@ -2989,7 +2991,7 @@ ncclResult_t ncclCommDestroy_impl(ncclComm_t comm) {
 #endif
 
 #ifdef ENABLE_ROCSHMEM
-  if (comm->enableRocshmem) {
+  if (comm->enableRocshmem || comm->rocshmemInitOnly) {
      for (int i = 0; i < NUM_SYM_BUF; i++) {	  
      	rocshmem::rocshmem_free(comm->sourceRshmem[i]);
      	rocshmem::rocshmem_free(comm->destRshmem[i]);	  
